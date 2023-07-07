@@ -65,23 +65,10 @@ export default function App(props: { appName: string }) {
   );
 
   const handleSignInWithGoogle = useCallback(async () => {
-    // const provider = new GoogleAuthProvider();
-    // provider.addScope("https://www.googleapis.com/auth/contacts.readonly");
-
-    // const r = await signInWithPopup(auth, provider);
-
-    // const accessToken = GoogleAuthProvider.credentialFromResult(r);
-    // console.log(`access token : ${accessToken}`);
-
-    const r = await signInWithEmailAndPassword(
-      auth,
-      "test@example.com",
-      "hogefuga"
-    );
-    const idToken = await r.user.getIdToken();
-    const deserializedIdToken = await r.user.getIdTokenResult();
+    // ここをcookieから取得したい，とりあえずaccess tokenをそのまま使えばよし
+    const idToken =
+      "eyJhbGciOiJSUzI1NiIsImtpZCI6ImE1MWJiNGJkMWQwYzYxNDc2ZWIxYjcwYzNhNDdjMzE2ZDVmODkzMmIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vZmItYXV0aC1zc28tdGVzdCIsImF1ZCI6ImZiLWF1dGgtc3NvLXRlc3QiLCJhdXRoX3RpbWUiOjE2ODg3NTUxNTgsInVzZXJfaWQiOiI0T080OGNJc2dGT21IbkVyOXhWMGdON25pVXAxIiwic3ViIjoiNE9PNDhjSXNnRk9tSG5Fcjl4VjBnTjduaVVwMSIsImlhdCI6MTY4ODc1NTE1OCwiZXhwIjoxNjg4NzU4NzU4LCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidGVzdEBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.hLnv9ZBgtRPdupcxytEEuf5R_gvXSApaWCl9OAvK-7JsipDyt7bmVzKnN8q0DxOLy6rNgTd3GJ8MmppI0d7ISbdNJlFbYqX5rAM_AN_TuRWFOJRdjxjjY4ry5mGBA2Mh5rFutxLR9pmEJSdp8gqWiT8HrfUki9e4aOPo6vdGuXd1bKj9Kn3Pg_gbUQKVUuetd5nyThcq1h6dlWMBk7XMI1ZN2-P9COPVxgs6P3SgNOHM1ZichaeM4VZdn9L07lFL98ILTDIdN8vHGV-zsX0SKbVSFIet8-Qjz_oazY7N_q_V5wkDJmpMpfgiKny8OO_5K-OUjFkOrO3vgRHiO8YveQ";
     console.log("idToken: ", idToken);
-    console.log(deserializedIdToken);
 
     // flow 1-2: Create new session
     const result = await fetch(API_ENDPOINT_SESSION_LOGIN, {

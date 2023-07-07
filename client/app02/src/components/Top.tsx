@@ -11,7 +11,10 @@ export default function UserTop(props: { user: User; signOut: () => void }) {
   return (
     <div>
       <h1>User Top page</h1>
-      <h2>Sign in completed!!</h2>
+      <h2>
+        Sign in completed!! <br />
+        (by access token from app01)
+      </h2>
       <button onClick={props.signOut}>Sign out</button>
 
       <div style={{ height: "50px" }}></div>
