@@ -1,12 +1,6 @@
 import "./App.css";
-import {
-  GoogleAuthProvider,
-  getAuth,
-  signInWithCustomToken,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-} from "firebase/auth";
-import { useCallback, useEffect, useState } from "react";
+import { getAuth, signInWithCustomToken } from "firebase/auth";
+import { useCallback, useEffect, useRef } from "react";
 
 import { auth } from "./firebase.app01";
 import SignIn from "./components/SignIn";
@@ -16,31 +10,18 @@ import useAuthChangeDetector from "./hooks/useAuthChangeDetector";
 const _API_ENDPOINT_ROOT =
   "http://127.0.0.1:5001/fb-auth-sso-test/us-central1/authtest/"; // ipではなくドメインにする（hostファイルを後述）
 const API_ENDPOINT_VERIFY_SESSION = _API_ENDPOINT_ROOT + "verifySession";
-const API_ENDPOINT_SESSION_LOGIN = _API_ENDPOINT_ROOT + "sessionLogin";
+// const API_ENDPOINT_SESSION_LOGIN = _API_ENDPOINT_ROOT + "sessionLogin";
 
 export type PageState = "SignUp" | "SignIn" | "Top";
 
 export default function App(props: { appName: string }) {
-  const [pageState, setPageState] = useState<PageState>("SignIn");
   const { authCurrentUser } = useAuthChangeDetector();
+  // const [params] = useSearchParams();
+  const params = new URLSearchParams(window.location.search);
+  const sessionToken = useRef(params.get("sessionToken") ?? null);
+  const userSignOut = useRef(params.get("userSignOut") ?? null);
 
-  const handleSignInWithCustomToken = useCallback(async () => {
-    const { customToken } = await fetch(API_ENDPOINT_VERIFY_SESSION, {
-      method: "post",
-    }).then((r) => r.json());
-
-    console.log("custom token: ", customToken);
-
-    if (customToken) {
-      const signInResult = await signInWithCustomToken(auth, customToken);
-
-      console.log(signInResult);
-    } else {
-      console.error("Invalid custome token : ", customToken);
-    }
-  }, []);
-
-  const handleSignInWithCustomTokenWithSessionCookieValue = useCallback(
+  const handleSignInWithCustomToken = useCallback(
     async (sessionCookieValue: string) => {
       const { customToken } = await fetch(API_ENDPOINT_VERIFY_SESSION, {
         method: "post",
@@ -64,64 +45,25 @@ export default function App(props: { appName: string }) {
     []
   );
 
-  const handleSignInWithGoogle = useCallback(async () => {
-    // const provider = new GoogleAuthProvider();
-    // provider.addScope("https://www.googleapis.com/auth/contacts.readonly");
+  const handleSignIn = useCallback(async () => {
+    const SIGNIN_TOKEN_PROVIDER_PAGE_URL = "http://localhost:7777";
+    const url = `${SIGNIN_TOKEN_PROVIDER_PAGE_URL}/?redirectUrl=${window.location.origin}`;
 
-    // const r = await signInWithPopup(auth, provider);
-
-    // const accessToken = GoogleAuthProvider.credentialFromResult(r);
-    // console.log(`access token : ${accessToken}`);
-
-    const r = await signInWithEmailAndPassword(
-      auth,
-      "test@example.com",
-      "hogefuga"
-    );
-    const idToken = await r.user.getIdToken();
-    const deserializedIdToken = await r.user.getIdTokenResult();
-    console.log("idToken: ", idToken);
-    console.log(deserializedIdToken);
-
-    // flow 1-2: Create new session
-    const result = await fetch(API_ENDPOINT_SESSION_LOGIN, {
-      method: "post",
-      headers: {
-        "Content-Type": "application/json",
-        // Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({
-        idToken: idToken,
-      }),
-    }).then((r) => r.json());
-
-    console.log("sessionLogin API result:");
-    console.log(result);
-
-    // flow 2: Check Session status and Get custom token
-    if (result.status === "success") {
-      // document.cookie = `session=${result.cookieValue};max-age=${result.maxAge};domain=http://127.0.0.1:5001/fb-auth-sso-test/us-central1/authtest`;
-
-      // handleSignInWithCustomToken();
-      const signInResult =
-        await handleSignInWithCustomTokenWithSessionCookieValue(
-          result.cookieValue
-        );
-
-      console.log(signInResult);
-    }
+    window.location.href = url;
   }, [auth]);
 
   const handleSignOut = useCallback(async () => {
-    getAuth().signOut();
+    await getAuth().signOut();
+    window.location.href = `${window.location.origin}/?userSignOut=true`;
   }, []);
 
-  // useEffect(() => {
-  //   console.log(auth);
-  //   if (auth.currentUser) {
-  //     handleSignInWithCustomToken();
-  //   }
-  // }, [auth, auth.currentUser]);
+  useEffect(() => {
+    if (sessionToken.current && !userSignOut.current) {
+      handleSignInWithCustomToken(sessionToken.current);
+    } else {
+      // handleSignIn();
+    }
+  }, [sessionToken, handleSignInWithCustomToken]);
 
   return (
     <>
@@ -135,11 +77,11 @@ export default function App(props: { appName: string }) {
         {props.appName}
       </h1>
       {/* {pageState === "SignIn" && (
-        <SignIn onHandleSignInWithGoogle={handleSignInWithGoogle} />
+        <SignIn onhandleSignIn={handleSignIn} />
       )}
       {pageState === "Top" && <UserTop />} */}
       {!authCurrentUser ? (
-        <SignIn onHandleSignInWithGoogle={handleSignInWithGoogle} />
+        <SignIn onHandleSignInWithGoogle={handleSignIn} />
       ) : (
         <UserTop user={authCurrentUser} signOut={handleSignOut} />
       )}

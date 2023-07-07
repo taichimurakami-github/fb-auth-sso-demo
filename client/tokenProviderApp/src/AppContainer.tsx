@@ -4,7 +4,7 @@ import App from "./App";
 export default function AppContainer() {
   return (
     <AuthProvider>
-      <App appName="app02" />
+      <App />
     </AuthProvider>
   );
 }

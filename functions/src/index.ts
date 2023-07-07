@@ -79,6 +79,7 @@ app.post("/sessionLogin", (req, res) => {
           JSON.stringify({
             status: "success",
             cookieValue: sessionCookie,
+            sessionCoockie: sessionCookie,
             maxAge: expiresIn,
             httpOnly: true,
             secure: true,
@@ -120,45 +121,46 @@ app.post("/verifySession", (req, res) => {
 
   const sessionCookie = req.body.sessionCookie.toString();
 
-  fbadmin
-    .auth()
-    .verifySessionCookie(sessionCookie, true /** checkRevoked */)
-    .then((decodedClaims) => {
-      // serveContentForUser("/profile", req, res, decodedClaims);
-      //
-      console.log(
-        "Succeeded to verify sessionCoockie. Now creating custom token for AuthN"
-      );
-      console.log("User uid is ", decodedClaims.uid);
+  try {
+    fbadmin
+      .auth()
+      .verifySessionCookie(sessionCookie, true /** checkRevoked */)
+      .then((decodedClaims) => {
+        // serveContentForUser("/profile", req, res, decodedClaims);
+        //
+        console.log(
+          "Succeeded to verify sessionCoockie. Now creating custom token for AuthN"
+        );
+        console.log("User uid is ", decodedClaims.uid);
 
-      fbadmin
-        .auth()
-        .createCustomToken(decodedClaims.uid)
-        .then((customToken) => {
-          console.log("Succeeded to create custom token:", customToken);
-          // Send token back to client
-          res.status(200).send({
-            status: "success",
-            customToken: customToken,
+        fbadmin
+          .auth()
+          .createCustomToken(decodedClaims.uid)
+          .then((customToken) => {
+            console.log("Succeeded to create custom token:", customToken);
+            // Send token back to client
+            res.status(200).send({
+              status: "success",
+              customToken: customToken,
+            });
+          })
+          .catch((error) => {
+            console.log("Error creating custom token:", error);
+            res.status(200).send({
+              status: "error",
+              customToken: "",
+            });
           });
-        })
-        .catch((error) => {
-          console.log("Error creating custom token:", error);
-          res.status(200).send({
-            status: "error",
-            customToken: "",
-          });
-        });
-    })
-    .catch((error) => {
-      console.log("\nE_SESSION_VERIFICATION");
-      console.log(error);
-      // Session cookie is unavailable or invalid. Force user to login.
-      res.status(401).send({
-        status: "error",
-        msg: "Unauthenticated. Please sign in first.",
       });
+  } catch (error) {
+    console.log("\nE_SESSION_VERIFICATION");
+    console.log(error);
+    // Session cookie is unavailable or invalid. Force user to login.
+    res.status(401).send({
+      status: "error",
+      msg: "Unauthenticated. Please sign in first.",
     });
+  }
 });
 
 export const authtest = functions.https.onRequest(app);
