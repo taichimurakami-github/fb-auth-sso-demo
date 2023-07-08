@@ -35,53 +35,51 @@ Expected "https://securetoken.google.com/fb-auth-sso-test" but got "https://sess
 
 Make sure the ID token comes from the same Firebase project as the service account used to authenticate this SDK. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
 
-firebase admin SDK において，エラーが発生したためその解決策を考えてください．
-以下に詳細を示します：
+## Flows
 
-# やりたいこと
+```mermaid
+sequenceDiagram
+  participant a1 as App01
+  participant a2 as App02
+  participant tp as TokenProvider
+  participant sv as Server
 
-異なるドメインでホスティングされた 2 つの web アプリケーション（app01, app02）の間で，ユーザの認証状態を共有したい（Single Sign On の実装）
+  note over a1: ユーザによるログイン操作
+  a1 ->> tp: redirect
+  note over tp: sessionCookie(sc)が保存されているか確認
+  tp ->> sv: post /validateSessionCoockie
+  note over sv: scの有効性を確認
+  sv ->> tp: sessionCookie validation result
+  alt sessionCookie is valid
+    tp ->> a1: sessionCookie
+  else sessionCookie is invalid
+    note over tp: signOut()
+    note over tp: ログインフォームを表示
+    note over tp: signInWithEmailAndPassword()
+    note over tp: userCred.getIdToken()
+    tp ->> sv: post /createSessionCookie
+    sv ->> tp: new sessionCookie
+    note over tp: sessionCookieをローカルに保存
+    tp ->> a1: sessionCookie
+  end
 
-# 実装詳細
+  a1 ->> sv: post /createCustomToken
+  note over sv: custom token作成
+  sv ->> a1: customToken
 
-- ユーザの認証には Firebase Auth を用いる
-- app01, app02 とは独立して，ログイン認証用のページ及び Firebase project を 1 つ用意
-- app から自動でログインページに遷移し，ローカルに保存されている sessionToken の状態を確認する
-- 保存されている sessionToken があれば，その有効性を firebase admin SDK にて検証する
-- 保存されている sessionToken がなければ，firebase auth の signInWithEmailAndPassword() を用いて userCredential を取得し，その中の getIdToken() の返り値を新たな sessionToken() として検証する．
-- app ページに sessionToken を伴ってリダイレクトする
-- app ページより，sessionToken を伴って自作のサーバにアクセスし， firebase admin SDK でログイン用の customToken を作成する
-- 作成した customToken を用いて，ログイン認証を行う
+  note over a1: signInWithCustomToken()
+  note over a1: ログイン完了
 
-# 動作確認
-
-以下の項目は既に動作確認済み．
-
-- sessionToken の作成
-- 異なる app 間における sessionToken の共有
-- customToken の作成
-- 作成した customToken を用いて signInWithCustomToken()を実行
-
-# エラー内容
+  note over a2: ユーザによるログイン操作
+  a2 ->> tp: redirect
+  note over tp: sessionCookie(sc)が保存されているか確認
+  tp ->> sv: post /validateSessionCoockie
+  note over sv: scの有効性を確認
+  note over sv: 先程ログイン時に確かめたのでvalidなはず
+  sv ->> tp: sessionCookie validation result
+  tp ->> a2: sessionCookie
+  a2 ->> sv: post /createCustomToken
+  note over sv: custom token作成
+  sv ->> a2: customToken
 
 ```
-> FirebaseAuthError: Firebase ID token has incorrect "iss" (issuer) claim. Expected "https://securetoken.google.com/fb-auth-sso-test" but got "https://session.firebase.google.com/fb-auth-sso-test". Make sure the ID token comes from the same Firebase project as the service account used to authenticate this SDK. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.
-> at FirebaseAuthError.FirebaseError [as constructor] (/Users/tchi/Dev_private/fb-auth-sso-demo/functions/node_modules/.pnpm/firebase-admin@10.3.0/node_modules/firebase-admin/lib/utils/error.js:44:28)
-> at FirebaseAuthError.PrefixedFirebaseError [as constructor] (/Users/tchi/Dev_private/fb-auth-sso-demo/functions/node_modules/.pnpm/firebase-admin@10.3.0/node_modules/firebase-admin/lib/utils/error.js:90:28)
-> at new FirebaseAuthError (/Users/tchi/Dev_private/fb-auth-sso-demo/functions/node_modules/.pnpm/firebase-admin@10.3.0/node_modules/firebase-admin/lib/utils/error.js:149:16)
-> at FirebaseTokenVerifier.verifyContent (/Users/tchi/Dev_private/fb-auth-sso-demo/functions/node_modules/.pnpm/firebase-admin@10.3.0/node_modules/firebase-admin/lib/auth/token-verifier.js:245:19)
-> at /Users/tchi/Dev_private/fb-auth-sso-demo/functions/node_modules/.pnpm/firebase-admin@10.3.0/node_modules/firebase-admin/lib/auth/token-verifier.js:165:19
-> at processTicksAndRejections (node:internal/process/task_queues:96:5) {
-> errorInfo: {
-> code: 'auth/argument-error',
-> message: 'Firebase ID token has incorrect "iss" (issuer) claim. Expected "https://securetoken.google.com/fb-auth-sso-test" but got "https://session.firebase.google.com/fb-auth-sso-test". Make sure the ID token comes from the same Firebase project as the service account used to authenticate this SDK. See https://firebase.google.com/docs/auth/admin/verify-id-tokens for details on how to retrieve an ID token.'
-> },
-> codePrefix: 'auth'
-> }
-```
-
-# 補足
-
-あくまで sessionToken を作成しているのは，app に関わらず独立して用意されたログインページ上であり，
-動作確認の時点で，一度作成した sessionToken を他のページでも使いまわせることを確認しているため，
-incorrect iss のエラーが出るのは不自然に思える．

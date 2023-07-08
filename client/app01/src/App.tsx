@@ -9,8 +9,9 @@ import useAuthChangeDetector from "./hooks/useAuthChangeDetector";
 
 const _API_ENDPOINT_ROOT =
   "http://127.0.0.1:5001/fb-auth-sso-test/us-central1/authtest/"; // ipではなくドメインにする（hostファイルを後述）
-const API_ENDPOINT_VERIFY_SESSION = _API_ENDPOINT_ROOT + "verifySession";
-// const API_ENDPOINT_SESSION_LOGIN = _API_ENDPOINT_ROOT + "sessionLogin";
+const API_ENDPOINT_VERIFY_SESSION = _API_ENDPOINT_ROOT + "verifySessionToken";
+const API_ENDPOINT_CREATE_CUSTOM_TOKEN =
+  _API_ENDPOINT_ROOT + "createCustomToken";
 
 export type PageState = "SignUp" | "SignIn" | "Top";
 
@@ -22,14 +23,33 @@ export default function App(props: { appName: string }) {
   const userSignOut = useRef(params.get("userSignOut") ?? null);
 
   const handleSignInWithCustomToken = useCallback(
-    async (sessionCookieValue: string) => {
-      const { customToken } = await fetch(API_ENDPOINT_VERIFY_SESSION, {
+    async (sessionToken: string) => {
+      console.log("Sending request to verify session token ...");
+      const verificationResult = await fetch(API_ENDPOINT_VERIFY_SESSION, {
         method: "post",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionCookie: sessionCookieValue,
+          sessionToken: sessionToken,
+        }),
+      }).then((r) => r.json());
+
+      console.log(verificationResult);
+
+      if (verificationResult.status !== "success") {
+        console.log("Session token verification failed");
+        return null;
+      }
+
+      console.log("Sending request to create custom token ...");
+      const { customToken } = await fetch(API_ENDPOINT_CREATE_CUSTOM_TOKEN, {
+        method: "post",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uid: verificationResult.uid,
         }),
       }).then((r) => r.json());
 
@@ -54,11 +74,14 @@ export default function App(props: { appName: string }) {
 
   const handleSignOut = useCallback(async () => {
     await getAuth().signOut();
-    window.location.href = `${window.location.origin}/?userSignOut=true`;
+    sessionToken.current = null;
+    userSignOut.current = null;
+    window.location.href = `${window.location.origin}`;
   }, []);
 
   useEffect(() => {
     if (sessionToken.current && !userSignOut.current) {
+      console.log("session token detected:", sessionToken.current);
       handleSignInWithCustomToken(sessionToken.current);
     } else {
       // handleSignIn();
@@ -81,7 +104,11 @@ export default function App(props: { appName: string }) {
       )}
       {pageState === "Top" && <UserTop />} */}
       {!authCurrentUser ? (
-        <SignIn onHandleSignInWithGoogle={handleSignIn} />
+        !sessionToken.current ? (
+          <SignIn onHandleSignInWithGoogle={handleSignIn} />
+        ) : (
+          <h1>ログイン処理中です...</h1>
+        )
       ) : (
         <UserTop user={authCurrentUser} signOut={handleSignOut} />
       )}

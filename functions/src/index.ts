@@ -29,12 +29,10 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(cookieParser());
 
-/**
- * Flow1-2: Create new session
- */
-app.post("/sessionLogin", (req, res) => {
+app.post("/createSessionToken", (req, res) => {
   // Get the ID token passed and the CSRF token.
   const idToken = req.body.idToken.toString(); // Can get from user.getIdToken() in firebase.auth.clientSDK
+  console.log("Starting to session-cookie creation");
   console.log("idToken: ", idToken);
   // const csrfToken = req.body.csrfToken.toString();
 
@@ -61,8 +59,8 @@ app.post("/sessionLogin", (req, res) => {
     .auth()
     .createSessionCookie(idToken, { expiresIn })
     .then(
-      (sessionCookie) => {
-        console.log("Created session cookie: ", sessionCookie);
+      (sessionToken) => {
+        console.log("Created session cookie: ", sessionToken);
         // Set cookie policy for session cookie.
         const options = {
           maxAge: expiresIn,
@@ -70,16 +68,16 @@ app.post("/sessionLogin", (req, res) => {
           // secure: true
         };
         res.setHeader("Cache-Control", "private");
-        // res.cookie("__session", sessionCookie, options);
+        // res.cookie("__session", sessionToken, options);
         res.setHeader(
           "Set-Cookie",
-          cookie.serialize("__session", sessionCookie, options)
+          cookie.serialize("__session", sessionToken, options)
         );
         res.end(
           JSON.stringify({
             status: "success",
-            cookieValue: sessionCookie,
-            sessionCoockie: sessionCookie,
+            cookieValue: sessionToken,
+            sessionCoockie: sessionToken,
             maxAge: expiresIn,
             httpOnly: true,
             secure: true,
@@ -87,7 +85,7 @@ app.post("/sessionLogin", (req, res) => {
         );
         // const responseBody = {
         //   status: "success",
-        //   cookieValue: sessionCookie,
+        //   cookieValue: sessionToken,
         //   maxAge: expiresIn,
         //   httpOnly: true,
         //   secure: true,
@@ -110,21 +108,13 @@ app.post("/sessionLogin", (req, res) => {
  * Flow1-1: Check session status
  * Flow2: Get Custom Token for AuthN
  */
-app.post("/verifySession", (req, res) => {
-  // セッションCookieを確認して権限チェック
-  // Whenever a user is accessing restricted content that requires authentication.
-  // const sessionCookie = req?.cookies?.session || "";
-  // console.log("Cookies: ", JSON.stringify(req.cookies));
-  // console.log("sessionCoockie: ", sessionCookie);
-  // Verify the session cookie. In this case an additional check is added to detect
-  // if the user's Firebase session was revoked, user deleted/disabled, etc.
-
-  const sessionCookie = req.body.sessionCookie.toString();
+app.post("/verifySessionToken", (req, res) => {
+  const sessionToken = req.body.sessionToken.toString();
 
   try {
     fbadmin
       .auth()
-      .verifySessionCookie(sessionCookie, true /** checkRevoked */)
+      .verifySessionCookie(sessionToken, true /** checkRevoked */)
       .then((decodedClaims) => {
         // serveContentForUser("/profile", req, res, decodedClaims);
         //
@@ -132,25 +122,45 @@ app.post("/verifySession", (req, res) => {
           "Succeeded to verify sessionCoockie. Now creating custom token for AuthN"
         );
         console.log("User uid is ", decodedClaims.uid);
+        res.status(200).send({
+          status: "success",
+          sessionToken: sessionToken,
+          uid: decodedClaims.uid,
+          claims: decodedClaims,
+        });
+      });
+  } catch (error) {
+    console.log("\nE_SESSION_VERIFICATION");
+    console.log(error);
+    // Session cookie is unavailable or invalid. Force user to login.
+    res.status(401).send({
+      status: "error",
+      msg: "Unauthenticated. Please sign in first.",
+    });
+  }
+});
 
-        fbadmin
-          .auth()
-          .createCustomToken(decodedClaims.uid)
-          .then((customToken) => {
-            console.log("Succeeded to create custom token:", customToken);
-            // Send token back to client
-            res.status(200).send({
-              status: "success",
-              customToken: customToken,
-            });
-          })
-          .catch((error) => {
-            console.log("Error creating custom token:", error);
-            res.status(200).send({
-              status: "error",
-              customToken: "",
-            });
-          });
+app.post("/createCustomToken", (req, res) => {
+  const uid = req.body.uid.toString();
+
+  try {
+    fbadmin
+      .auth()
+      .createCustomToken(uid)
+      .then((customToken) => {
+        console.log("Succeeded to create custom token:", customToken);
+        // Send token back to client
+        res.status(200).send({
+          status: "success",
+          customToken: customToken,
+        });
+      })
+      .catch((error) => {
+        console.log("Error creating custom token:", error);
+        res.status(200).send({
+          status: "error",
+          customToken: "",
+        });
       });
   } catch (error) {
     console.log("\nE_SESSION_VERIFICATION");
